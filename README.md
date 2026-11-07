@@ -34,6 +34,10 @@ a player, give a taller body more reach and more through registry keys. **[API.m
 <body tags="climbable"><vox file="MOD/vox/vines.vox"/></body>    <!-- a wall you climb in every direction -->
 ```
 
+## Community
+
+Join the [Discord community](https://discord.gg/gNpRewdkxf) to post bug reports and suggestions.
+
 ## Install
 
 Subscribe on the Steam Workshop, or clone this repository into `Documents/Teardown/mods/climbing`. Enable it under
