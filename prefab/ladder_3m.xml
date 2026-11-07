@@ -1,0 +1,7 @@
+<prefab version="1.6.0">
+	<group name="instance=MOD/prefab/ladder_3m.xml" pos="0.0 0.0 0.0" rot="0.0 0.0 0.0">
+		<body tags="ladder" pos="0.0 0.0 0.0" rot="0.0 0.0 0.0" dynamic="true">
+			<vox pos="0.0 1.6 0.0" rot="0.0 0.0 0.0" file="MOD/vox/ladder_3m.vox"/>
+		</body>
+	</group>
+</prefab>
