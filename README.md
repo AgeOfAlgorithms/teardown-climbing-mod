@@ -19,7 +19,8 @@ for all players; each player's game animates every climber. The host turns it on
   Forward / back climb, left / right step off, jump jumps off, crouch lets go. At the top you climb over onto the floor.
 - **Climbable walls**: grab with forward facing the wall, move with the movement keys, over the top at the edge; jump
   jumps off, crouch lets go. Grab a net from the water to climb out.
-- **Mantling**: walk or jump into a ledge up to chest height, straight ahead, to pull yourself up. Crouch: no mantle.
+- **Mantling**: walk or jump into a ledge up to chest height, straight ahead, to pull yourself up. The height is an option (Mod Manager > Options): 1.4 m by default, from knee height (0.6 m) up to head height (1.8 m); in multiplayer the host's setting counts. Crouch: no mantle.
+- **Spiderman mode** (an option, off by default): every static wall is climbable. Jump at a wall (or press interact at it) to grab it; walking along a wall doesn't grab it, low walls are still mantled, loose objects, vehicles and doors are never climbed. In multiplayer the host's setting counts.
 - The hint at the bottom of the screen shows your own keys (or your gamepad's buttons).
 - **Spawn menu**: Climbing > Ladder 3 m.
 

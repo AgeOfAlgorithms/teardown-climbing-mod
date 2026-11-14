@@ -66,6 +66,28 @@ function climbClientInit()
 		grab = LoadSound("grab0.ogg"),
 		land = LoadSound("wood/land0.ogg"),
 	}
+	CA.wallSnd = {}                                -- (Spiderman mode: a step sound per wall material, loaded when first heard)
+end
+
+-- the game's material -> its sound folder (data/snd/<folder>/step0..)
+local WALL_SND = {masonry = "masonry", hardmasonry = "masonry", rock = "masonry", plaster = "masonry", dirt = "dirt",
+	wood = "wood", metal = "metal", hardmetal = "metal", heavymetal = "metal", glass = "glass", plastic = "plastic",
+	ice = "ice", foliage = "foliage"}
+
+-- Spiderman mode: the step sound of the wall in front of the hands (a ray into it, its material), masonry if unknown
+local function wallSound(p, hand, n)
+	QueryRequire("physical")
+	QueryCollisionMask(CL_RAYMASK)
+	clRejectSteps()
+	QueryRejectPlayer(p)
+	local from = VecAdd(hand, VecScale(n, 0.3))
+	local hit, d, _, sh = QueryRaycast(from, VecScale(n, -1), 1.5, 0)
+	local folder = "masonry"
+	if hit and sh ~= 0 then
+		folder = WALL_SND[GetShapeMaterialAtPosition(sh, VecAdd(from, VecScale(n, -d - 0.02))) or ""] or folder
+	end
+	CA.wallSnd[folder] = CA.wallSnd[folder] or LoadSound(folder .. "/step0.ogg")
+	return CA.wallSnd[folder]
 end
 
 -- ------------------------------------------------------------------ per frame: progress, sounds, camera
@@ -115,7 +137,8 @@ function climbClientTick(dt)
 				if d.nrm then a.n = VecNormalize(VecAdd(a.n or d.nrm, VecScale(VecSub(d.nrm, a.n or d.nrm), math.min(1, dt * 10)))) end
 				if a.dist - a.stepAt >= 2 * RUNG then
 					a.stepAt = a.dist
-					snd(CA.snd.leaf, VecAdd(feet, Vec(0, 1.4, 0)), STEP_VOL, 0.85 + math.random() * 0.3)
+					local hand = VecAdd(feet, Vec(0, 1.4, 0))
+					snd(d.wall and a.n and wallSound(p, hand, a.n) or CA.snd.leaf, hand, STEP_VOL, 0.85 + math.random() * 0.3)
 				end
 			end
 		end

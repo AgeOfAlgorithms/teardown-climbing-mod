@@ -55,6 +55,15 @@ CLEAR = 0.4                         -- m: the body's clearance from anything in 
 -- mantle (Warehouse Ring)
 MANTLE_MIN_RISE, MANTLE_MIN_RISE_GROUND, MANTLE_MAX_RISE = 0.35, 0.55, 1.4
 MANTLE_MAX_REACH = 1.95             -- m above the floor you last stood on
+MANTLE_RISE_LOW, MANTLE_RISE_LIMIT = 0.6, 1.8   -- knee .. head height: what the host's option (options.lua, savegame.mod.mantleheight) allows
+
+-- the mantle height in use: the host's option within MANTLE_RISE_LOW .. MANTLE_RISE_LIMIT; unset = MANTLE_MAX_RISE
+function clMantleRise()
+	local h = GetFloat("savegame.mod.mantleheight")
+	if not h or h <= 0 then return MANTLE_MAX_RISE end
+	-- (+ 2 cm: a ledge exactly as high as the setting counts - a 0.6 m ledge measured 0.6000001 was refused at 0.6)
+	return math.max(MANTLE_RISE_LOW, math.min(h, MANTLE_RISE_LIMIT)) + 0.02
+end
 MANTLE_REACH = 0.75
 MANTLE_CONE = 45                    -- deg: mantle only moving within this of the facing (the ledge searched straight ahead)
 MANTLE_MAX_FALL = 14
@@ -416,9 +425,9 @@ local function surfRay(p, from, dir, dist)
 	local hit, d, n, sh = clRay(p, from, dir, dist, 0)
 	if not hit then return nil end
 	local pt = VecAdd(from, VecScale(dir, d))
-	local sp = clClimbable(sh, pt, CW.patches)
+	local sp, free = clClimbable(sh, pt, CW.patches)
 	if not sp or not clSteep(n) then return nil end
-	return pt, n, sp
+	return pt, n, sp, free
 end
 
 -- a few rays toward the surface around `c` (a point at the body axis); count, mean point, mean normal, speed
@@ -447,7 +456,7 @@ local function surfFrame(n)
 end
 
 local function surfPub(m)
-	setPub(m, {k = "surface", g = m.g, nrm = VecCopy(m.n), sp = m.speed})
+	setPub(m, {k = "surface", g = m.g, nrm = VecCopy(m.n), sp = m.speed, wall = m.free == true})
 	m.pubN = VecCopy(m.n)
 end
 
@@ -455,12 +464,19 @@ local function trySurface(p, m, k, feet)
 	if not (k.up or k.useNew) then return false end
 	local dir = playerFwd(p)
 	local chest = VecAdd(feet, Vec(0, PROBE_Y, 0))
-	local pt, n, sp = surfRay(p, chest, dir, SURF_GRAB)
+	local pt, n, sp, free = surfRay(p, chest, dir, SURF_GRAB)
 	if not pt then return false end
 	if VecDot(dir, n) > -0.5 then return false end              -- (facing it: within 60 deg)
+	-- Spiderman mode, a wall that is not tagged climbable: grabbed only in the air (a jump, a fall, swimming) or with
+	-- interact - walking along a street must not stick you to every wall - and only a wall that reaches past the hands
+	-- (a low one is mantled, not climbed)
+	if free then
+		if IsPlayerGrounded(p) and not k.useNew then return false end
+		if not surfRay(p, VecAdd(feet, Vec(0, HAND_Y, 0)), dir, SURF_GRAB + 0.3) then return false end
+	end
 	k.useNew = false
 	newGrab(m)
-	m.mode, m.n, m.speed, m.sideT, m.blockT, m.moving = "surface", n, sp, 0, 0, false
+	m.mode, m.n, m.speed, m.sideT, m.blockT, m.moving, m.free = "surface", n, sp, 0, 0, false, free
 	m.pos = VecCopy(feet)
 	surfPub(m)
 	return true
@@ -688,8 +704,10 @@ local function tryMantle(p, m, k, feet, v, grounded)
 	-- up); the headroom and room checks stay human-sized (its engine collision is a human capsule)
 	local reach = GetFloat("climbing.reach." .. p)
 	local own = reach and reach > 0
-	local l = clFindLedge(p, feet, dir, grounded, own and reach or MANTLE_MAX_RISE)
-	if l and not own and not grounded and m.groundY and l.top - m.groundY > MANTLE_MAX_REACH then l = nil end
+	-- (the host's mantle height option raises or lowers the reach, and the cap over the last floor by as much)
+	local rise = CM.rise or MANTLE_MAX_RISE
+	local l = clFindLedge(p, feet, dir, grounded, own and reach or rise)
+	if l and not own and not grounded and m.groundY and l.top - m.groundY > MANTLE_MAX_REACH + rise - MANTLE_MAX_RISE then l = nil end
 	if l then startMantle(p, m, l, dir) end
 end
 
@@ -740,6 +758,8 @@ function climbServerUpdate(dt)
 	local doMask = CM.maskT <= 0
 	if doMask then CM.maskT = 0.25 end
 	local noMantle = GetBool("climbing.nomantle")
+	CL_ANYWALL = GetBool("savegame.mod.anywall") and not GetBool("climbing.noanywall")
+	CM.rise = clMantleRise()
 	for _, p in ipairs(GetAllPlayers() or {}) do
 		local m = stateOf(p)
 		m.cool = m.cool - dt

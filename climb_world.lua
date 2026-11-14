@@ -16,6 +16,8 @@ RUNG = 0.3                 -- m between rungs, along the axis (hand / foot targe
 STANDOFF = 0.42            -- m from the rung line / the surface to the climber's body axis
 MAX_LEAN = 45              -- deg from vertical: a ladder or face leaning more than this is a slope, not climbed
 SURF_SPEED = 1.6           -- m/s on a climbable surface (a tag value climbable=<m/s> overrides)
+ANYWALL_SPEED = 1.3        -- m/s on any other wall in Spiderman mode
+CL_ANYWALL = false         -- Spiderman mode (the host's option savegame.mod.anywall, climbServerUpdate): every static wall climbable
 LADDER_LAYER = 4           -- collision layer of ladder shapes: players leave it out of their mask (no snagging on rungs)
 RESCAN_NEW = 0.25          -- s: look for new tagged ladders (spawned ones) this often
 RESCAN_ALL = 2.0           -- s: rebuild every tagged ladder (moved, broken)
@@ -285,7 +287,8 @@ local function speedOf(v)
 	return clClamp(s, 0.3, 4)
 end
 
--- a ray hit (shape, point): the climbing speed if it is climbable, else nil
+-- a ray hit (shape, point): the climbing speed if it is climbable, else nil; second value true = only climbable through
+-- Spiderman mode (any static wall: not a loose / moving body, a vehicle or a door - those are dynamic)
 function clClimbable(shape, point, patches)
 	if shape and shape ~= 0 then
 		if HasTag(shape, "climbable") then return speedOf(GetTagValue(shape, "climbable")) end
@@ -294,6 +297,10 @@ function clClimbable(shape, point, patches)
 	end
 	for _, P in ipairs(patches or {}) do
 		if clInPatch(P, point) then return P.speed end
+	end
+	if CL_ANYWALL and shape and shape ~= 0 then
+		local b = GetShapeBody(shape)
+		if b ~= 0 and not IsBodyDynamic(b) then return ANYWALL_SPEED, true end
 	end
 	return nil
 end

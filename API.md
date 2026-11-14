@@ -77,6 +77,16 @@ No setup: walking or jumping into a ledge pulls the player up onto it, if the le
 (0.55 m from standing on the ground), within reach of the last floor they stood on (1.95 m), straight ahead (moving
 within 45 degrees of the way they face), and there is room on top. Crouch: no mantle. Thin rails are vaulted over.
 
+The 1.4 m is the default of the mod's option "Mantle height" (Mod Manager > Options; in multiplayer the host's
+counts): 0.6 m (knee) to 1.8 m (head). The 1.95 m rises or falls with it by as much.
+
+## Spiderman mode
+
+An option (off by default; in multiplayer the host's counts): every static wall is a climbable surface, not only what is
+tagged. Such a wall is grabbed only in the air (a jump, a fall, swimming) or with interact, and only if it reaches past
+the hands (lower ones are mantled). Dynamic bodies (loose objects, vehicles, doors) are never climbed. A game mode or
+map whose routes must not be bypassed sets `climbing.noanywall`.
+
 ## Settings for other mods (registry, host)
 
 Set these from a **server** script. Keys the clients read must be set with `sync = true` (the third argument of
@@ -86,6 +96,7 @@ Set these from a **server** script. Keys the clients read must be set with `sync
 |---|---|---|
 | `climbing.off` | bool | the whole mod stands down; climbers let go. For a game mode with its own movement. |
 | `climbing.nomantle` | bool | no free mantling; ladders and surfaces still pull players over their tops. |
+| `climbing.noanywall` | bool | Spiderman mode off whatever the host's option says (only tagged surfaces climbed). |
 | `climbing.block.<player>` | bool | that player can't climb or mantle now (knocked down, carried, trapped...). |
 | `climbing.reach.<player>` | float, m | that player's mantle reach in place of 1.4 m, without the 1.95 m cap. For a taller player-controlled body with a human collision capsule. Unset or 0: the default. |
 | `climbing.raymask` | int | collision layers all of Climbing's rays skip, on top of layer 4 (e.g. 160 = layers 128 + 32: a mod's own hit boxes and model parts). Read on every machine: set it with sync. |
