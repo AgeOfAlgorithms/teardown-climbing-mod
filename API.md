@@ -90,7 +90,7 @@ map whose routes must not be bypassed sets `climbing.noanywall`.
 ## Settings for other mods (registry, host)
 
 Set these from a **server** script. Keys the clients read must be set with `sync = true` (the third argument of
-`SetBool` / `SetInt` / `SetFloat`).
+`SetBool` / `SetInt` / `SetFloat` / `SetString`).
 
 | key | type | what it does |
 |---|---|---|
@@ -100,6 +100,8 @@ Set these from a **server** script. Keys the clients read must be set with `sync
 | `climbing.block.<player>` | bool | that player can't climb or mantle now (knocked down, carried, trapped...). |
 | `climbing.reach.<player>` | float, m | that player's mantle reach in place of 1.4 m, without the 1.95 m cap. For a taller player-controlled body with a human collision capsule. Unset or 0: the default. |
 | `climbing.raymask` | int | collision layers all of Climbing's rays skip, on top of layer 4 (e.g. 160 = layers 128 + 32: a mod's own hit boxes and model parts). Read on every machine: set it with sync. |
+| `climbing.noanim.<player>` | bool | leave that player's character alone: no animation clip, no hands and feet on the rungs, no turning the body to the wall. For a mod that hides the character and draws its own (it can animate it from the climb state below). Read on every machine: set it with sync. |
+| `climbing.nosound.<player>` | bool | no rung, grip, grab or landing sounds for that player (the mod plays its own). Read on every machine: set it with sync. |
 
 Published by Climbing:
 
@@ -107,6 +109,14 @@ Published by Climbing:
 |---|---|---|
 | `climbing.on.<player>` | bool, synced | true while that player is on a ladder or surface, or mantling |
 | `climbing.present` | bool, synced | true while Climbing runs (re-set every second, also while `climbing.off` is set): a mode with its own mantle can stand down while it is there |
+| `climbing.mantleheight` | float, synced | the host's Mantle height option in metres: 0.6 to 1.8, 1.4 when not set. Written when it changes and again every second (with `climbing.present`). A mod with a taller player can scale its `climbing.reach.<player>` with it. Missing: an older Climbing (take 1.4). |
+| `climbing.kind.<player>` | string, synced | what the player is doing: `"ladder"`, `"surface"`, `"mantle"` (pulling up onto a ledge), `"top"` (going over the top of a ladder or surface) or `""` (not climbing). Written for every player, so a missing key means an older Climbing without these keys. |
+| `climbing.dirx.<player>`, `.diry.`, `.dirz.` | floats, synced | the way the climber faces, a unit vector. Ladder: into the rungs, tilted with the ladder's lean. Surface: into the surface (its normal reversed; it follows the surface as the climber moves). Mantle and top: over the edge (level). Kept when the player lets go. |
+| `climbing.edge.<player>` | float, synced | mantle and top: the edge's height (world y) |
+| `climbing.dur.<player>` | float, synced | mantle and top: how long the pull-up takes, in seconds (from when `climbing.kind` changes to it) |
+
+The climb-state keys are written only when they change. The facing, edge and duration are written before the kind, so
+a script that sees a new kind reads that move's values.
 
 ```lua
 -- a game mode with its own movement
@@ -121,6 +131,18 @@ end
 
 -- a downed player can't climb
 SetBool("climbing.block." .. p, true)
+
+-- a hidden character with your own model: Climbing moves the player, you animate the model (server: set, synced)
+SetBool("climbing.noanim." .. p, true, true)
+SetBool("climbing.nosound." .. p, true, true)
+-- (any machine, every frame)
+local kind = GetString("climbing.kind." .. p)
+if kind ~= "" then
+	local face = Vec(GetFloat("climbing.dirx." .. p), GetFloat("climbing.diry." .. p), GetFloat("climbing.dirz." .. p))
+	if kind == "mantle" or kind == "top" then
+		local edgeY, dur = GetFloat("climbing.edge." .. p), GetFloat("climbing.dur." .. p)
+	end
+end
 ```
 
 ## Things to know

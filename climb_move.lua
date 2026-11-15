@@ -22,7 +22,8 @@
 -- Registry (host): climbing.off (everything stands down), climbing.nomantle (no free mantling: ladders and surfaces
 --   still pull you over their tops), climbing.block.<p> (that player can't climb now), climbing.reach.<p> (metres:
 --   that player's mantle reach, no reach cap), climbing.raymask (layers all the mod's rays skip). Published:
---   climbing.on.<p>, climbing.present (synced).
+--   climbing.on.<p>, climbing.present, and the climb state climbing.kind / dirx / diry / dirz / edge / dur.<p> (synced:
+--   clRegPub). Read on every machine: climbing.noanim.<p>, climbing.nosound.<p> (climb_anim.lua).
 -- shared.climb = {n = seq, p = {[player] = state}} for the clients (whole table: nested shared writes unverified);
 -- shared.climbL = {n = seq, list = {ladder data}} for the hints; shared.climbOff while off.
 
@@ -57,12 +58,29 @@ MANTLE_MIN_RISE, MANTLE_MIN_RISE_GROUND, MANTLE_MAX_RISE = 0.35, 0.55, 1.4
 MANTLE_MAX_REACH = 1.95             -- m above the floor you last stood on
 MANTLE_RISE_LOW, MANTLE_RISE_LIMIT = 0.6, 1.8   -- knee .. head height: what the host's option (options.lua, savegame.mod.mantleheight) allows
 
--- the mantle height in use: the host's option within MANTLE_RISE_LOW .. MANTLE_RISE_LIMIT; unset = MANTLE_MAX_RISE
+-- the mantle height setting: the host's option within MANTLE_RISE_LOW .. MANTLE_RISE_LIMIT; unset = MANTLE_MAX_RISE.
+-- Published as climbing.mantleheight (synced, on change and every second with climbing.present): another mod scales
+-- its own reach with it (Humans vs Clickers: the clicker's climbing.reach.<p> = 2.6 x it / 1.4)
+function clMantleHeight()
+	local h = GetFloat("savegame.mod.mantleheight")
+	if not h or h <= 0 then return MANTLE_MAX_RISE end
+	return math.max(MANTLE_RISE_LOW, math.min(h, MANTLE_RISE_LIMIT))
+end
+
+-- the mantle reach in use: the setting, + 2 cm when the host set it (a ledge exactly as high as the setting counts - a
+-- 0.6 m ledge measured 0.6000001 was refused at 0.6)
 function clMantleRise()
 	local h = GetFloat("savegame.mod.mantleheight")
 	if not h or h <= 0 then return MANTLE_MAX_RISE end
-	-- (+ 2 cm: a ledge exactly as high as the setting counts - a 0.6 m ledge measured 0.6000001 was refused at 0.6)
-	return math.max(MANTLE_RISE_LOW, math.min(h, MANTLE_RISE_LIMIT)) + 0.02
+	return clMantleHeight() + 0.02
+end
+
+local function pubMantleHeight(force)
+	local h = clMantleHeight()
+	if force or CM.mhPub ~= h then
+		CM.mhPub = h
+		SetFloat("climbing.mantleheight", h, true)
+	end
 end
 MANTLE_REACH = 0.75
 MANTLE_CONE = 45                    -- deg: mantle only moving within this of the facing (the ledge searched straight ahead)
@@ -151,6 +169,42 @@ local function setPub(m, pub)
 	end
 	m.pub = pub
 	CM.dirty = true
+end
+
+-- the climb state in the registry for other mods (Humans vs Clickers animates its own 3.6 m clicker rig from it; shared
+-- tables can't be read by another script). Synced, written only when a value changes (floats: by more than 2 mm / 0.002):
+--   climbing.kind.<p>  string  "ladder", "surface", "mantle", "top", or "" (not climbing; written for every player)
+--   climbing.dirx/diry/dirz.<p>  floats, unit: the way the climber faces - into the rungs (incl. a ladder's lean), into
+--                      the surface (its normal reversed), over the edge (mantle / top: horizontal); kept when they let go
+--   climbing.edge.<p>  float: the edge's height (world y), mantle / top
+--   climbing.dur.<p>   float, s: the pull-up's duration, mantle / top
+-- The facing, edge and duration are written before the kind (a reader seeing a new kind finds its data with it).
+local function regOf(pub)
+	if not pub then return "" end
+	if pub.k == "ladder" then return "ladder", VecScale(pub.N, -1) end
+	if pub.k == "surface" then return "surface", VecScale(pub.nrm, -1) end
+	if pub.edge then return pub.k, pub.dir, pub.edge[2], pub.dur end
+	if pub.F then                                                  -- over a ladder's top (poseEdge's edge and facing)
+		return pub.k, pub.fwd, pub.top and pub.topY or (pub.F[2] + pub.A[2] * pub.len), pub.dur
+	end
+	return pub.k
+end
+
+local function near(a, b) return a ~= nil and math.abs(a - b) < 0.002 end
+
+function clRegPub(p, m)
+	local r = m.reg
+	if not r then r = {}; m.reg = r end
+	local kind, dir, edge, dur = regOf(m.pub)
+	if dir and VecLength(dir) > 0.1 then
+		dir = VecNormalize(dir)
+		for i, ax in ipairs({"x", "y", "z"}) do
+			if not near(r[ax], dir[i]) then r[ax] = dir[i]; SetFloat("climbing.dir" .. ax .. "." .. p, dir[i], true) end
+		end
+	end
+	if edge and not near(r.edge, edge) then r.edge = edge; SetFloat("climbing.edge." .. p, edge, true) end
+	if dur and not near(r.dur, dur) then r.dur = dur; SetFloat("climbing.dur." .. p, dur, true) end
+	if r.kind ~= kind then r.kind = kind; SetString("climbing.kind." .. p, kind, true) end
 end
 
 local function publishLadders()
@@ -729,6 +783,7 @@ function climbServerInit()
 	-- climbing.present: this mod runs (synced; kept set, also while climbing.off is: a game mode with its own mantle
 	-- polls it - another mod's init may run before or after this one)
 	SetBool("climbing.present", true, true)
+	pubMantleHeight(true)
 	CM.presentT = 0
 end
 
@@ -739,6 +794,7 @@ function climbServerUpdate(dt)
 	for _, p in ipairs(GetRemovedPlayers() or {}) do
 		if CM.st[p] then CM.st[p] = nil; CM.dirty = true end
 		SetBool("climbing.on." .. p, false, true)
+		SetString("climbing.kind." .. p, "", true)
 	end
 	if GetBool("climbing.off") then
 		if not CM.wasOff then
@@ -746,6 +802,7 @@ function climbServerUpdate(dt)
 			for p, m in pairs(CM.st) do
 				if m.mode then release(p, m, REGRAB, nil) end
 				setOn(p, m, false)
+				clRegPub(p, m)
 			end
 			shared.climbOff = true
 			publish()
@@ -760,6 +817,7 @@ function climbServerUpdate(dt)
 	local noMantle = GetBool("climbing.nomantle")
 	CL_ANYWALL = GetBool("savegame.mod.anywall") and not GetBool("climbing.noanywall")
 	CM.rise = clMantleRise()
+	pubMantleHeight(false)
 	for _, p in ipairs(GetAllPlayers() or {}) do
 		local m = stateOf(p)
 		m.cool = m.cool - dt
@@ -787,6 +845,7 @@ function climbServerUpdate(dt)
 		end
 		if m.mode ~= "ladder" and m.mode ~= "surface" then setStep(p, m, nil) end
 		setOn(p, m, m.mode ~= nil)
+		clRegPub(p, m)
 	end
 	climbHoldStill()
 	if CM.dirty then publish() end
@@ -807,6 +866,7 @@ function climbServerTick(dt)
 	if CM.presentT <= 0 then
 		CM.presentT = 1
 		SetBool("climbing.present", true, true)
+		pubMantleHeight(true)                                     -- (also while climbing.off: a late reader finds it)
 	end
 	if not CM.wasOff then climbHoldStill() end
 end

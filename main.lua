@@ -4,7 +4,8 @@
 -- Maps mark things, the mod does the rest:
 --   <location tags="ladder=<length>[,<lean>]"/>, anything tagged ladder, anything tagged climbable[=<speed>],
 --   <location tags="climbable=<w>,<h>"/>. Registry (host): climbing.off, climbing.nomantle, climbing.block.<p>,
---   climbing.reach.<p>, climbing.raymask; published: climbing.on.<p>, climbing.present.
+--   climbing.reach.<p>, climbing.raymask, climbing.noanim.<p>, climbing.nosound.<p>; published: climbing.on.<p>,
+--   climbing.present, climbing.mantleheight, climbing.kind / dirx / diry / dirz / edge / dur.<p> (the climb state, API.md).
 
 #include "climb_world.lua"
 #include "climb_move.lua"

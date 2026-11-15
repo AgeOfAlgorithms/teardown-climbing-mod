@@ -9,6 +9,7 @@
 --     axis, any angle). Surfaces: each limb's next grip is a ray onto the surface ahead of it, planted there until
 --     its next move. Mantling and the pull over a ladder's top: the game's jump-landing clip (proven), hands on the edge.
 --   SOUND: rung steps / grips in the rhythm, a grab, a landing (registerVolume false: AI hearing ignores them).
+--   A mod can take a player over: climbing.noanim.<p> (no pose at all), climbing.nosound.<p> (no sounds), synced.
 --   FIRST PERSON (yourself; no own body is drawn): the mantle's dip only. On a ladder or a surface the eye just
 --     follows the climb (the bob + roll in the rhythm - 3 cm / 1.2 deg at ~4-8 Hz - is gone: with the old per-update
 --     teleport it made the view shake, "triple images").
@@ -45,6 +46,11 @@ local function smooth(x) return x * x * (3 - 2 * x) end
 
 local function snd(h, pos, vol, pitch)
 	if h and pos then PlaySound(h, pos, vol, false, pitch or 1) end
+end
+
+-- player p's climbing sounds, unless a mod has set climbing.nosound.<p> (it plays its own for that player)
+local function psnd(p, h, pos, vol, pitch)
+	if not GetBool("climbing.nosound." .. p) then snd(h, pos, vol, pitch) end
 end
 
 local function feetOf(p)
@@ -103,7 +109,7 @@ function climbClientTick(dt)
 				a = {g = d.g, k = d.k, tk = GetTime(), feet = VecCopy(feet), dist = 0, stepAt = 0, r = 0, stillT = 0,
 					mdir = Vec(0, 1, 0), grips = {}, j = {}, n = d.nrm and VecCopy(d.nrm) or nil, on = false}
 				CA.A[p] = a
-				snd(CA.snd.grab, VecAdd(feet, Vec(0, 1.5, 0)), GRAB_VOL, 0.9 + math.random() * 0.2)
+				psnd(p, CA.snd.grab, VecAdd(feet, Vec(0, 1.5, 0)), GRAB_VOL, 0.9 + math.random() * 0.2)
 			end
 			if a.k ~= d.k then a.k, a.tk = d.k, GetTime() end
 			a.live, a.d = true, d
@@ -125,9 +131,9 @@ function climbClientTick(dt)
 				if beat ~= a.beat then
 					if a.beat then
 						local hand = VecAdd(feet, Vec(0, 1.4, 0))
-						snd(CA.snd.wood, hand, STEP_VOL, 0.85 + math.random() * 0.25)
+						psnd(p, CA.snd.wood, hand, STEP_VOL, 0.85 + math.random() * 0.25)
 						a.steps = (a.steps or 0) + 1
-						if a.steps % 3 == 0 then snd(CA.snd.creak, hand, STEP_VOL * 0.5, 0.55 + math.random() * 0.15) end
+						if a.steps % 3 == 0 then psnd(p, CA.snd.creak, hand, STEP_VOL * 0.5, 0.55 + math.random() * 0.15) end
 					end
 					a.beat = beat
 				end
@@ -138,7 +144,9 @@ function climbClientTick(dt)
 				if a.dist - a.stepAt >= 2 * RUNG then
 					a.stepAt = a.dist
 					local hand = VecAdd(feet, Vec(0, 1.4, 0))
-					snd(d.wall and a.n and wallSound(p, hand, a.n) or CA.snd.leaf, hand, STEP_VOL, 0.85 + math.random() * 0.3)
+					if not GetBool("climbing.nosound." .. p) then
+						snd(d.wall and a.n and wallSound(p, hand, a.n) or CA.snd.leaf, hand, STEP_VOL, 0.85 + math.random() * 0.3)
+					end
 				end
 			end
 		end
@@ -146,7 +154,7 @@ function climbClientTick(dt)
 	for p, a in pairs(CA.A) do
 		if a.live and not P[p] then
 			a.live = false
-			if a.k == "mantle" or a.k == "top" then snd(CA.snd.land, feetOf(p), LAND_VOL) end
+			if a.k == "mantle" or a.k == "top" then psnd(p, CA.snd.land, feetOf(p), LAND_VOL) end
 		end
 	end
 	-- first person: your own camera
@@ -319,7 +327,14 @@ function climbClientPostUpdate(dt)
 	local fp = not GetBool("game.thirdperson")
 	for p, d in pairs(P) do
 		local a = CA.A[p]
-		if a and IsPlayerValid(p) then
+		if a and IsPlayerValid(p) and GetBool("climbing.noanim." .. p) then
+			-- (a mod animates this player itself: no clip override, no IK, no root turn; a running override is cleared)
+			if a.on then
+				a.on = false
+				SetString("game.override.animation." .. p, "")
+				SetFloat("game.override.animation." .. p .. ".weight", 0)
+			end
+		elseif a and IsPlayerValid(p) then
 			local clip, w = CLIMB_CLIP, CLIMB_W
 			local k = 0
 			if d.k == "mantle" or d.k == "top" then
