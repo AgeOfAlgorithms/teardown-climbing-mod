@@ -362,6 +362,11 @@ function climbClientPostUpdate(dt)
 	end
 end
 
+-- a spawn-menu ladder was taken away (the host's option "Ladders in the spawn menu: Off", climb_world.lua refused)
+function client.climbLadderRefused()
+	SetString("hud.notification", "Ladders from the spawn menu are switched off (Clamber options)")
+end
+
 -- ------------------------------------------------------------------ hints
 -- A short bar at the bottom centre (the game's own hint-bar layout: key icon + text pairs, regular.ttf). The keys are
 -- the player's OWN bindings, never names written here: on a keyboard read from the game's keymap

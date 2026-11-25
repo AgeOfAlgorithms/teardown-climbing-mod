@@ -2,6 +2,7 @@
 -- savegame.mod.mantleheight (float, metres): the highest ledge a player pulls themselves onto; unset = 1.4 (the
 -- default), from 0.6 (knee height) up to 1.8 (head height). climb_move.lua reads it (clMantleRise).
 -- savegame.mod.anywall (bool): Spiderman mode, every static wall climbable (climb_world.lua clClimbable).
+-- savegame.mod.noladders (bool): ladders placed from the spawn menu are taken away at once (climb_world.lua refused).
 
 local HEIGHTS = {0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8}
 local NOTES = {"knee", "", "waist", "", "chest (default)", "", "head"}
@@ -15,7 +16,7 @@ function draw()
 			if h >= v - 0.01 then cur = i end
 		end
 	end
-	UiTranslate(UiCenter(), 200)
+	UiTranslate(UiCenter(), 140)
 	UiAlign("center middle")
 	UiFont("bold.ttf", 48)
 	UiText("Clamber")
@@ -57,6 +58,25 @@ function draw()
 	UiFont("regular.ttf", 22)
 	UiColor(0.7, 0.7, 0.7)
 	UiText("Jump at a wall (or press interact at it) to grab it. Loose objects, vehicles and doors are never climbed.")
+	-- savegame.mod.noladders: nobody can place ladders from the spawn menu
+	UiTranslate(0, 80)
+	UiColor(1, 1, 1)
+	UiFont("regular.ttf", 28)
+	UiText("Ladders in the spawn menu")
+	UiTranslate(0, 60)
+	local off = GetBool("savegame.mod.noladders")
+	for i, label in ipairs({"Allowed", "Off"}) do
+		UiPush()
+		UiTranslate((i - 1.5) * 170, 0)
+		if (i == 2) == off then UiColor(0.75, 0.9, 1) else UiColor(0.55, 0.55, 0.55) end
+		UiFont("bold.ttf", 32)
+		if UiTextButton(label, 150, 50) then SetBool("savegame.mod.noladders", i == 2) end
+		UiPop()
+	end
+	UiTranslate(0, 55)
+	UiFont("regular.ttf", 22)
+	UiColor(0.7, 0.7, 0.7)
+	UiText("Off: a ladder placed from the spawn menu disappears at once. Ladders already there and the map's own stay.")
 	UiTranslate(0, 50)
 	UiText("In multiplayer the host's settings count for everyone.")
 	UiTranslate(0, 80)

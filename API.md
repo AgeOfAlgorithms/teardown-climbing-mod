@@ -16,8 +16,10 @@ you walk up. There are three ways to make one.
 
 ### 1. The spawn menu
 
-**Climbing > Ladder 3 m**: a 3 m wooden ladder. Lean it against a wall or stand it anywhere; it is pinned where it
-lands.
+**Climbing > Ladder 3 m / 6 m / 9 m / 12 m**: wooden ladders. Lean one against a wall or stand it anywhere; it is
+pinned where it lands, its rungs facing you. The host can switch them off in the mod's options (Ladders in the spawn
+menu: Off): a ladder placed then is taken away at once (`savegame.mod.noladders`; the prefabs carry the tag
+`clamberspawn`, a map's own ladders are never touched).
 
 ### 2. A location in your map (exact)
 

@@ -1,2 +1,5 @@
 #Climbing
 prefab/ladder_3m.xml : Climbing/Ladder 3 m
+prefab/ladder_6m.xml : Climbing/Ladder 6 m
+prefab/ladder_9m.xml : Climbing/Ladder 9 m
+prefab/ladder_12m.xml : Climbing/Ladder 12 m

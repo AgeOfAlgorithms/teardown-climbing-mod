@@ -1,0 +1,7 @@
+<prefab version="1.6.0">
+	<group name="instance=MOD/prefab/ladder_9m.xml" pos="0.0 0.0 0.0" rot="0.0 0.0 0.0">
+		<body tags="ladder clamberspawn" pos="0.0 0.0 0.0" rot="0.0 0.0 0.0" dynamic="true">
+			<vox pos="0.0 4.6 0.0" rot="0.0 90.0 0.0" file="MOD/vox/ladder_9m.vox"/>
+		</body>
+	</group>
+</prefab>

@@ -386,14 +386,41 @@ local function rebuild()
 	return changed
 end
 
-local function scanNew()
+-- the spawn menu's held preview (data/script/spawn.lua): its shapes' collision filter is (0, 0) until it is placed.
+-- Left alone - not pinned, its filter kept (ours put it on the ladder layer, colliding) - while the menu moves and turns
+-- it; the placed ladder is a new body with filter (1, 255), found by the next scan. (Looked into for "RMB doesn't rotate
+-- the ladder", the user, 2026-11-25: NOT its cause - the TEST shows a pinned body turns with SetBodyTransform too.)
+local function spawnPreview(shapes)
+	if #shapes == 0 then return false end
+	for _, sh in ipairs(shapes) do
+		local layer, mask = GetShapeCollisionFilter(sh)
+		if layer ~= 0 or mask ~= 0 then return false end
+	end
+	return true
+end
+
+-- the host's option savegame.mod.noladders: the spawn menu's ladders (tag clamberspawn: this mod's prefabs) are taken
+-- away as soon as they are placed, with a notice to everyone (the spawn menu's list itself is fixed: spawn.txt). Those
+-- there at load (a saved game, a map that uses the prefab) and the held preview stay.
+local function refused(b, atInit)
+	if atInit or not HasTag(b, "clamberspawn") or not GetBool("savegame.mod.noladders") then return false end
+	Delete(b)
+	ClientCall(0, "client.climbLadderRefused")
+	return true
+end
+
+local function scanNew(atInit)
 	local found = false
 	for _, b in ipairs(FindBodies("ladder", true) or {}) do
-		if not CW.known[b] then CW.known[b] = {body = true}; found = true end
+		if not CW.known[b] and not spawnPreview(GetBodyShapes(b) or {}) and not refused(b, atInit) then
+			CW.known[b] = {body = true}; found = true
+		end
 	end
 	for _, sh in ipairs(FindShapes("ladder", true) or {}) do
 		local b = GetShapeBody(sh)
-		if not CW.known[sh] and not (b ~= 0 and HasTag(b, "ladder")) then CW.known[sh] = {body = false}; found = true end
+		if not CW.known[sh] and not (b ~= 0 and HasTag(b, "ladder")) and not spawnPreview({sh}) then
+			CW.known[sh] = {body = false}; found = true
+		end
 	end
 	return found
 end
@@ -414,7 +441,7 @@ function clWorldInit()
 		local P = clPatchFromLocation(loc)
 		if P then CW.patches[#CW.patches + 1] = P end
 	end
-	scanNew()
+	scanNew(true)
 	rebuild()
 	CW.newT, CW.allT = RESCAN_NEW, RESCAN_ALL
 end
